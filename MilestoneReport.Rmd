@@ -7,6 +7,19 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tm)
+library(ggplot2)
+load_file_con <- function(source = NULL, lang = NULL){
+    if(is.null(source) || is.null(lang)){
+        print("Language options are: ")
+        print(paste(dir("~/Downloads/SwiftKeyData/"), sep = " "))
+        print("Source options are: blogs, twitter, news")
+        return("")
+    }
+    path <- paste("~/Downloads/SwiftKeyData/", lang, "/", lang, ".", source, ".txt", sep = "")
+    con <- file(path, "r")
+    return(con)
+}
 ```
 
 ## Instructions
@@ -16,10 +29,131 @@ The goal of this project is just to display that you've gotten used to working w
 2. Create a basic report of summary statistics about the data sets.
 3. Report any interesting findings that you amassed so far.
 4. Get feedback on your plans for creating a prediction algorithm and Shiny app.
-Review criteria
 
+## Get the Data
 
-### Does the link lead to an HTML page describing the exploratory analysis of the training data set?
-### Has the data scientist done basic summaries of the three files? Word counts, line counts and basic data tables?
-### Has the data scientist made basic plots, such as histograms to illustrate features of the data?
-### Was the report written in a brief, concise style, in a way that a non-data scientist manager could appreciate?
+- We have 3 data sources:
+  - Twitter, Blogs, News
+
+- Each data source comes in 4 different languages:
+  - German, English, Finnish, Russian
+  
+The size on disk is: 1.4 GB
+  - German - ~250 MB
+  - English - ~500 MB
+  = Finnish - ~230 MB
+  - Russian - ~340 MB
+  
+Let's look at line counts just for fun:
+
+**NB** I made my own little function to load the files locally (because uploading all this to RPubs is a bad idea). For original data [see this](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip).
+
+```{r le_data, cache = TRUE}
+sources <- c("twitter", "blogs", "news")
+languages <- c("de_DE", "en_US", "fi_FI", "ru_RU")
+for(lang in languages){
+    for(source in sources){
+        con <- load_file_con(source, lang)
+        sample <- suppressWarnings(readLines(con, encoding = "UTF-8"))
+        print(paste0(c(source, " in ", lang, " has ", length(sample), " lines."), collapse = ""))
+        close(con)
+    }
+}
+```
+
+### Some more Summary Statistics
+
+So we got some info about the amount of data above. It's a lot. So we need to break it down into manageable chunks. Say of 10000 lines at a time.
+
+```{r subsamples, cache=TRUE}
+sources <- c("twitter", "blogs", "news")
+languages <- c("de_DE", "en_US", "fi_FI", "ru_RU")
+subsamples <- data.frame(Source = character(12), Sample = character(12), stringsAsFactors = FALSE)
+names <- list(12)
+samples <- list(12)
+counter <- 1
+for(lang in languages){
+    for(source in sources){
+        con <- load_file_con(source, lang)
+        data <- suppressWarnings(readLines(con, n=1000, encoding = "UTF-8"))
+        names[counter] <- paste0(c(source, lang), collapse = "_")
+        samples[[counter]] <- data
+        close(con)
+        counter <- counter+1
+    }
+}
+subsamples$Source <- names
+subsamples$Sample <- samples
+```
+
+In order to get things like word counts and etc, I used `tm` package to make `Corpus` out of each of the collected data samples.
+Using that package it is pretty easy to collect word frequencies using the two functions below:
+```{r word_freqs, cache=TRUE}
+getFreqWords <- function(docs, wordL = c(4,20), top = 10){
+    docs <- Corpus(VectorSource(unlist(docs)))
+    if((class(docs) != "TermDocumentMatrix")[1] & (class(docs) != "DocumentTermMatrix")[1]){
+        docs <- DocumentTermMatrix(docs, control=list(wordLengths=wordL,
+                                                      bounds = list(global = c(3, (length(docs)/1.5)) )))
+    }
+    freq <- colSums(as.matrix(docs))
+    ord <- order(freq, decreasing = TRUE)
+    freq <- freq[head(ord, top)]
+    return(freq)
+}
+
+freqDF <- function(docs, wordSize = c(4,20), head = 15){
+    wordSize <- c(as.numeric(wordSize[1]),as.numeric(wordSize[2]))
+    freq <- getFreqWords(docs, wordL = wordSize, top = as.numeric(head))
+    if(length(freq) == 0){
+        return(NULL)
+    }
+    freq <- data.frame(word = names(freq), frequency = freq)
+    return(freq)
+}
+
+freqDF(subsamples$Sample[[12]])
+freqDF(subsamples$Sample[[6]])
+```
+
+So it seems like determining word length is non-trivial for non-Latin languages.
+Additionally, it is clear that most frequent words would probably what's called "stop words." These tasks are to be left for data pre-processing.  however. 
+
+## Plot the data
+
+For now, let's just avoid the last part by upping the minimum word-length and make a histogram:
+
+```{r pretty_plots}
+for(idx in 1:nrow(subsamples)){
+    f = freqDF(subsamples$Sample[[idx]], wordSize = c(5,20))
+    hist <- ggplot(f, aes(x = reorder(word, -frequency), y = frequency)) + 
+            geom_bar(stat="identity") +
+            labs(x = "Word", y = "Count", title = paste0(subsamples$Source[[idx]]))
+    plot(hist)
+}
+```
+
+It's somewhat expected that the top most frequent words would be the same coming from different sources in the same language. However, it is intereting to see the differences in the lower ranks (e.g. `wieder`, `haben` and `wieder` taking 2nd place in German depending on source).
+
+Let's look at that in German. Get the differences in most frequent words in German tweets, news, and blogs. Then get their respective counts:
+
+```{r de_freq_diff}
+de_twitter_freq <- freqDF(subsamples$Sample[[1]], wordSize = c(5,20))
+de_blogs_freq <- freqDF(subsamples$Sample[[2]], wordSize = c(5,20))
+de_news_freq <- freqDF(subsamples$Sample[[3]], wordSize = c(5,20))
+diff_twitter_words <- Reduce(setdiff, list(de_twitter_freq$word, de_blogs_freq$word, de_news_freq$word))
+diff_blogs_words <- Reduce(setdiff, list(de_blogs_freq$word, de_twitter_freq$word, de_news_freq$word))
+diff_news_words <- Reduce(setdiff, list(de_news_freq$word, de_twitter_freq$word, de_blogs_freq$word))
+print(diff_twitter_words)
+print(diff_blogs_words)
+print(diff_news_words)
+```
+
+Pretty interesting to see that specific sources feature specific words more frequently. This leaves me with some action items for preprocessing and further exploration:
+
+## Action items:
+
+- Find out how to process word lengths in non-Latin languages (Russian, Finnish)
+- Clean the data from stop words
+- Explore the word frequency differnces based on source
+- Based on the pre-processing above, collect metrics on n-grams
+- Modeling the data can take into account the unique frequencies of specific words based on source context (e.g. "share" might occur more frequenctly in blogs and Twitter than in the news)

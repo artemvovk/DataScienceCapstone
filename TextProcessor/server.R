@@ -7,6 +7,7 @@
 #    http://shiny.rstudio.com/
 #
 # Data processing libraries
+library(tm)
 library(magrittr)
 library(dplyr)
 library(slam)
@@ -18,9 +19,7 @@ library(openNLP)
 library(openNLPmodels.en)
 
 # Text mining
-#library(hunspell) keeps crashing
 library(filehash)
-library(tm)
 library(quanteda)
 
 # Shiny and visualization
