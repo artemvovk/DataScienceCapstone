@@ -142,3 +142,25 @@ Here are a few tools that may be of use to you as you work on their algorithm:
 - `gc()`: this function runs the garbage collector to retrieve unused RAM for R. In the process it tells you how much memory is currently being used by R.
 
 There will likely be a tradeoff that you have to make in between size and runtime. For example, an algorithm that requires a lot of memory, may run faster, while a slower algorithm may require less memory. You will have to find the right balance between the two in order to provide a good experience to the user.
+
+\newpage
+## Tasks 3-4 are captured in the TextProcessor app
+
+
+\newpage
+## Task 5
+
+So far you have used basic models to understand and predict words. In this next task, your goal is to use all the resources you have available to you (from the Data Science Specialization, resources on the web, or your own creativity) to improve the predictive accuracy while reducing computational runtime and model complexity (if you can). Be sure to hold out a test set to evaluate the new, more creative models you are building.
+
+-  *Tasks to accomplish*
+
+  - Explore new models and data to improve your predictive model.
+  - Evaluate your new predictions on both accuracy and efficiency. 
+
+- *Questions to consider*
+
+  - What are some alternative data sets you could consider using?
+  - What are ways in which the n-gram model may be inefficient?
+  - What are the most commonly missed n-grams? Can you think of a reason why they would be missed and fix that?
+  - What are some other things that other people have tried to improve their model?
+  - Can you estimate how uncertain you are about the words you are predicting?

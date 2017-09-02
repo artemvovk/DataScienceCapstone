@@ -75,15 +75,13 @@ nextWordProb <- function(input, corpus = NULL){
     grams <- tokensDF(tokenized, gramSize = maxGram+1)[first_terms == words[maxGram,]$last_gram]
     grams <- calcProbs(grams)
     
-    for(scope in (maxGram):2){
-        
-        tokenized <- nTokenize(x = corpus, n = scope)
-        next_grams <- tokensDF(tokenized, gramSize = scope)[first_terms == words[scope-1,]$last_gram]
-        next_grams <- calcProbs(next_grams)
-        grams <- rbind(grams, next_grams)
-    }
+    registerDoParallel(makePSOCKcluster(8))
+    grams <- foreach(scope = (maxGram):2, .combine = rbind) %do% 
+                calcProbs(tokensDF(nTokenize(x = corpus, n = scope), gramSize = scope)[first_terms == words[scope-1]$last_gram])
+    stopImplicitCluster()
+    
     freq_sum <- sum(grams$count)
     all_freq <- grams[, sum(count*discount)/freq_sum, by= last_word]
     colnames(all_freq) <- c("word", "prob")
-    return(all_freq[prob > 0.01])
+    return(all_freq[prob > 0.001])
 }

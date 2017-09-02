@@ -1,35 +1,44 @@
 # Loading Data Functions
+download_dataset <- function(){
+    if (!file.exists("swiftkey.zip")){
+        url <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+        download.file(url, destfile = "swiftkey.zip", method = "curl")
+    } else if (!file.exists("data")){
+        unzip("swiftkey.zip", exdir = "data")
+    }
+}
+
 load_file_con <- function(source = NULL, lang = NULL){
+    path <- "data/final/"
     if(is.null(source) || is.null(lang)){
         print("Language options are: ")
-        print(paste(dir("~/Downloads/SwiftKeyData/"), sep = " "))
+        print(paste(dir(path), sep = " "))
         print("Source options are: blogs, twitter, news")
         return("")
     }
-    path <- paste("~/Downloads/SwiftKeyData/", lang, "/", lang, ".", source, ".txt", sep = "")
+    path <- paste(path, lang, "/", lang, ".", source, ".txt", sep = "")
     con <- file(path, "r")
     return(con)
 }
 
-getCorpus <- function(lang, sources = NULL, samplesize = NULL){
-    if (is.null(samplesize)) {
-        path <- paste("~/Downloads/SwiftKeyData/", lang, "/", sep = "")
-        files <- DirSource(path, encoding = "ISO 8859-1")
-        # If you wanna save changes to DB
-        # PCorpus(files, dbControl=list(useDB=TRUE,dbName="./textDB",dbType="DB1"))
-        return(Corpus(files))
-    } else {
-        if(is.null(sources)){
-            sources <- c("blogs", "twitter", "news")
-        }
-        sample <- list()
-        for(source in sources){
-            con <- load_file_con(source, lang)
-            sample <- c(sample, readLines(con, samplesize, skipNul = TRUE, encoding = "ISO 8859-1"))
-        }
-        close.connection(con)
-        return(Corpus(VectorSource(sample)))
+scramble <- function(vec,n) {
+    res <- tapply(vec,(seq_along(vec)+n-1)%/%n,
+                  FUN=function(x) x[sample.int(length(x), size=length(x))])
+    unname(unlist(res))
+}
+
+getCorpus <- function(lang, sources = c("all"), samplesize = 1000){
+    if(sources == c("all")){
+        sources <- c("blogs", "twitter", "news")
     }
+    sample <- list()
+    for(source in sources){
+        con <- load_file_con(source, lang)
+        sample <- c(sample, readLines(con, samplesize, skipNul = TRUE, encoding = "ISO 8859-1"))
+        sample <- scramble(sample, length(sample)/2)
+    }
+    close.connection(con)
+    return(Corpus(VectorSource(sample)))
 }
 
 getFreqWords <- function(docs, wordL = c(4,20), top = 10){

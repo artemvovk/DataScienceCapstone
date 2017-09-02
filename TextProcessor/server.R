@@ -1,12 +1,9 @@
-#
-# This is the server logic of a Shiny web application. You can run the 
-# application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-# 
-#    http://shiny.rstudio.com/
-#
+
 # Data processing libraries
+library(parallel)
+library(iterators)
+library(foreach)
+library(doParallel)
 library(tm)
 library(magrittr)
 library(dplyr)
@@ -33,10 +30,12 @@ source("filter.R")
 source("tokenizers.R")
 source("model.R")
 
-# Define server logic required to draw a histogram
+# Define server logic
 shinyServer(function(input, output, session) {
-    
     docs <- reactive({
+        withProgress(message = "Downloading dataset", value = 0, {
+            download_dataset()
+        })
         suppressWarnings(getCorpus("en_US", as.character(input$source), as.numeric(input$lines)))
     })
     
@@ -108,6 +107,66 @@ shinyServer(function(input, output, session) {
     })
     
     # Output processing:
+    output$welcome <- renderUI({
+        return(HTML('
+    <ul>
+    <li><a href="https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"><strong>The Data</strong></a></li>
+    </ul>
+    <p>This exercise uses the files named <code>LOCALE.blogs.txt</code> where <code>LOCALE</code> 
+       is the each of the four locales <code>en_US</code>, <code>de_DE</code>, <code>ru_RU</code> 
+       and <code>fi_FI</code>. The data is from a corpus called HC Corpora. See the About the 
+       Corpora reading for more details. The files have been language filtered but may still 
+       contain some foreign text.[^language]<br>
+       Each entry is tagged with it’s date of publication. Where user comments are included 
+       they will be tagged with the date of the main entry.</p>
+    <p>Each entry is tagged with the type of entry, based on the type of website it is 
+       collected from (e.g. newspaper or personal blog) If possible, each entry is tagged 
+       with one or more subjects based on the title or keywords of the entry (e.g. if the 
+       entry comes from the sports section of a newspaper it will be tagged with “sports” 
+       subject).In many cases it’s not feasible to tag the entries (for example, it’s not 
+       really practical to tag each individual Twitter entry, though I’ve got some ideas 
+       which might be implemented in the future) or no subject is found by the automated 
+       process, in which case the entry is tagged with a ‘0’.</p>
+    <h1><a id="The_Tabs_0"></a>The Tabs</h1>
+        <p>At the top of the application you can see a set of available tabs. These appear 
+        in the order of a standard data analysis process:</p>
+    <h3><a id="Plain_Text_4"></a>Plain Text</h3>
+        <p>Here is where you can just “look at the data” and its subsets. The options 
+        available to you are in the side panel on the left. You can subset the data by 
+        language, source, amount of lines, and offset. The idea here is to perform some 
+        basic exploratory analysis.</p>
+    <h3><a id="Search_Results_8"></a>Search Results</h3>
+        <p>Another way of performing preliminary analysis of the data is to query the 
+        dataset. So that’s what you can do here. Based on the subset chosen in the 
+        <strong>Plain Text</strong> tab, you can enter a word or a phrase and the application 
+        will search the chosen subset for that string.</p>
+    <h3><a id="Preprocessed_Text_12"></a>Pre-processed Text</h3>
+        <p>Here’s where the fun begins. Using some magical R packages you can clean and 
+        pre-process the data chose in the <strong>Plain Text</strong> tab. It is possible 
+        subset it further since the pre-processing is an intensive process, given the hardware. 
+        This is not a glorious step, but very much necessary for any sensible data analysis.</p>
+    <h3><a id="Graphs_16"></a>Graphs</h3>
+        <p>Now the fun begins. Using the processed subset it is now possible to analyze the 
+        dataset for potential patterns. Here we meet the limitations of current natural language 
+        processing. It basically boils down to proper tokenization using large dictionaries. It is 
+        possible to get mildly accurate counts with better stemming, but any <em>meaning</em> 
+        from the data must be done by a human for now. Therefore, the tools given here are mainly 
+        for visualization. Any inference is up to the user.</p>
+    <h3><a id="Prediction_20"></a>Prediction</h3>
+        <p>This is, by far, the most computationally intensive part of the application. Here is 
+        where the pre-processing, tokenization, and some statistics come in to pretend to be a 
+        human being. Given a phrase, the application will query the processed subset of the data 
+        and attempt to find the next word by matching continuously smaller n-grams based on the 
+        input string.</p>
+        <p>So, given a 5-word phrase, the algorithm will go through the dataset and see if 
+        any 5-grams match, then 4-grams, then 3-grams, down to bigrams. More weight is given 
+        to longer grams based on the assumption that longer word patterns tend to rely on each 
+        other more: e.g <code>the quick brown</code> is more likely to be followed by 
+        <code>fox</code> than <code>bag</code> even though <code>brown bag</code> is a valid 
+        phrase as well.</p>
+    </body></html>
+        '))
+    })
     output$debug <- renderUI({
         ol <- paste(c("<ol start=\"", input$lineSelect[1], "\">"), collapse = "")
         htmlOut <- c(HTML(ol))
@@ -166,7 +225,9 @@ shinyServer(function(input, output, session) {
         }
         ggplot(lines, aes(x = reorder(word, -frequency), y = frequency)) + 
             geom_bar(stat = "identity") + labs(x = "Word", y = "Count") + 
-            theme(axis.text=element_text(size=18), axis.title=element_text(size=32,face="bold"))
+            theme(axis.text=element_text(size=18), 
+                  axis.title=element_text(size=32, face="bold"),
+                  axis.text.x = element_text(angle = 45, hjust = 1))
     })
     output$ngrams <- renderDataTable({
         tokenized <- nTokenize(x = filterLinesReturn(), n = as.numeric(input$gramSize))

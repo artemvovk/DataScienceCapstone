@@ -1,21 +1,19 @@
-#
-# This is the user-interface definition of a Shiny web application. You can
-# run the application by clicking 'Run App' above.
-#
-# Find out more about building applications with Shiny here:
-# 
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(wordcloud2)
 
-# Define UI for application that draws a histogram
-shinyUI(navbarPage("Language Processing with R",
+# Define UI
+shinyUI(navbarPage("Artem Tries to Process Natural Language",
+    tabPanel("Introduction",
+            fluidPage(
+                titlePanel("Welcome!"),
+                htmlOutput("welcome")
+            )
+    ),
     tabPanel("Plain Text",
         sidebarLayout(
             sidebarPanel(
-                selectInput("source", "Select Text Source", choices = c("Twitter" = "twitter", 
+                selectInput("source", "Select Text Source", choices = c("All" = "all",
+                                                                        "Twitter" = "twitter", 
                                                                         "News" = "news", 
                                                                         "Blogs" = "blogs"), selected = "Twitter"),
                 numericInput("lines", "Number of Lines", value = 100, max = 10000, min = 10, step = 1),
