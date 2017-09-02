@@ -1,4 +1,3 @@
-
 # Data processing libraries
 library(parallel)
 library(iterators)
@@ -12,8 +11,8 @@ library(data.table)
 
 # NLP libraries
 library(NLP)
-library(openNLP)
-library(openNLPmodels.en)
+#library(openNLP)
+#library(openNLPmodels.en)
 
 # Text mining
 library(filehash)
